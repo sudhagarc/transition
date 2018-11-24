@@ -2,13 +2,14 @@ package transition_test
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/qor/qor/test/utils"
-	"github.com/qor/transition"
+	"github.com/sudhagarc/transition"
 )
 
 type Order struct {
@@ -18,7 +19,7 @@ type Order struct {
 	transition.Transition
 }
 
-var db = utils.TestDB()
+var db = testDB()
 
 func init() {
 	for _, model := range []interface{}{&Order{}, &transition.StateChangeLog{}} {
@@ -30,6 +31,40 @@ func init() {
 			panic(err)
 		}
 	}
+}
+
+// testDB initialize a db for testing
+func testDB() *gorm.DB {
+	var db *gorm.DB
+	var err error
+	var dbuser, dbpwd, dbname = "qor", "qor", "qor_test"
+
+	if os.Getenv("DB_USER") != "" {
+		dbuser = os.Getenv("DB_USER")
+	}
+
+	if os.Getenv("DB_PWD") != "" {
+		dbpwd = os.Getenv("DB_PWD")
+	}
+
+	if os.Getenv("TEST_DB") == "postgres" {
+		db, err = gorm.Open("postgres", fmt.Sprintf("postgres://%s:%s@localhost/%s?sslmode=disable", dbuser, dbpwd, dbname))
+	} else {
+		// CREATE USER 'qor'@'localhost' IDENTIFIED BY 'qor';
+		// CREATE DATABASE qor_test;
+		// GRANT ALL ON qor_test.* TO 'qor'@'localhost';
+		db, err = gorm.Open("sqlite3", fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local", dbuser, dbpwd, dbname))
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	if os.Getenv("DEBUG") != "" {
+		db.LogMode(true)
+	}
+
+	return db
 }
 
 func getStateMachine() *transition.StateMachine {
